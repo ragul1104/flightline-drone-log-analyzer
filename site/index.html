@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flightline — Drone Log Analyzer</title>
+<style>
+:root{--bg:#f1f4f2;--card:#fff;--ink:#14201c;--muted:#5b6a65;--accent:#0f6b5c;--bad:#b3261e;--warn:#9a5700;--ok:#1b7a3d;--grid:#d3dbd7;--flagbg:rgba(179,38,30,.14);--c1:#0f6b5c;--c2:#b35c00;--c3:#3b4fa8;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0f1715;--card:#18231f;--ink:#e6efeb;--muted:#9bb0a8;--accent:#4fd1b5;--bad:#ff8a80;--warn:#ffb74d;--ok:#6fdc8c;--grid:#2c3b36;--flagbg:rgba(255,138,128,.18);--c1:#4fd1b5;--c2:#ffb74d;--c3:#8fa4ff}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0f1715;--card:#18231f;--ink:#e6efeb;--muted:#9bb0a8;--accent:#4fd1b5;--bad:#ff8a80;--warn:#ffb74d;--ok:#6fdc8c;--grid:#2c3b36;--flagbg:rgba(255,138,128,.18);--c1:#4fd1b5;--c2:#ffb74d;--c3:#8fa4ff}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{padding:28px 20px 8px;max-width:1180px;margin:auto}
+h1{margin:0;font:700 32px/1.1 Georgia,"Times New Roman",serif;letter-spacing:-.5px}
+header p{margin:6px 0 0;color:var(--muted);max-width:60ch}
+main{max-width:1180px;margin:auto;padding:16px 20px 60px;display:grid;grid-template-columns:320px 1fr;gap:20px}
+@media(max-width:860px){main{grid-template-columns:1fr}}
+.box{background:var(--card);border:1px solid var(--grid);border-radius:10px;padding:16px;margin-bottom:16px}
+h2{font-size:15px;margin:0 0 10px}h3{margin:0;font-size:18px}
+.drop{display:block;border:2px dashed var(--grid);border-radius:10px;padding:22px 12px;text-align:center;cursor:pointer;color:var(--muted)}
+.drop.on,.drop:hover,.drop:focus-within{border-color:var(--accent);color:var(--ink)}
+.drop input{position:absolute;opacity:0;width:1px;height:1px}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);padding:8px 14px}
+button.main{background:var(--accent);color:var(--bg);width:100%;font-weight:600;padding:11px}
+button:focus-visible,textarea:focus-visible,input:focus-visible+span{outline:3px solid var(--c3);outline-offset:2px}
+label.ck{display:flex;gap:8px;align-items:center;padding:3px 0}
+textarea{width:100%;min-height:70px;border:1px solid var(--grid);border-radius:8px;background:var(--bg);color:var(--ink);padding:8px;font:inherit;margin-top:8px}
+.muted{color:var(--muted);font-size:14px}
+.card{background:var(--card);border:1px solid var(--grid);border-left-width:6px;border-radius:10px;padding:16px;margin-bottom:16px}
+.card.bad{border-left-color:var(--bad)}.card.warn{border-left-color:var(--warn)}.card.ok{border-left-color:var(--ok)}.card.na{border-left-color:var(--grid)}
+.top{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.tag{font-weight:700;font-size:14px;padding:2px 10px;border-radius:99px;border:1.5px solid currentColor}
+.bad .tag{color:var(--bad)}.warn .tag{color:var(--warn)}.ok .tag{color:var(--ok)}.na .tag{color:var(--muted)}
+.say{font-size:17px;margin:10px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}@media(max-width:700px){.cols{grid-template-columns:1fr}}
+ul,ol{margin:4px 0 8px;padding-left:20px}li{margin:3px 0}
+h4{margin:10px 0 2px;font-size:14px}
+.chart{margin-top:8px;overflow-x:auto}canvas{display:block}
+.sum{border:1px solid var(--grid);background:var(--card);border-radius:10px;padding:16px;margin-bottom:16px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.msg{color:var(--bad);margin:8px 0}
+#cs{width:100%;padding:8px;border:1px solid var(--grid);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+.cl{max-height:200px;overflow:auto;margin-top:6px}.cr{display:flex;gap:8px;align-items:center;padding:2px 0;font-size:14px;word-break:break-all}
+.card.info{border-left-color:var(--c3)}.info .tag{color:var(--c3)}
+main{align-items:start}aside{position:sticky;top:env(safe-area-inset-top,0px);max-height:100vh;overflow:auto;padding-right:4px}@media(max-width:860px){aside{position:static;max-height:none}}
+.cl{max-height:340px}.cl details{border-bottom:1px solid var(--grid)}.cl summary{cursor:pointer;padding:5px 0;font-weight:600;font-size:14px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px;margin-bottom:16px}
+.tile{background:var(--card);border:1px solid var(--grid);border-left:5px solid var(--grid);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:2px}
+.tile span,.tile small{color:var(--muted);font-size:13px}.tile b{font-size:22px}
+.tile.ok{border-left-color:var(--ok)}.tile.ok b{color:var(--ok)}.tile.warn{border-left-color:var(--warn)}.tile.warn b{color:var(--warn)}.tile.bad{border-left-color:var(--bad)}.tile.bad b{color:var(--bad)}.tile.info{border-left-color:var(--c3)}
+@media print{aside,.row{display:none}main{display:block}}
+</style>
+<style>
+:root{--bg:#f3f6f7;--card:#fff;--ink:#12212a;--muted:#596a73;--accent:#087e8b;--bad:#b8323a;--warn:#98600a;--ok:#18734a;--grid:#dce5e8;--flagbg:rgba(184,50,58,.11);--c1:#087e8b;--c2:#bd6b12;--c3:#5559a8;--shadow:0 12px 32px rgba(17,42,52,.06);color-scheme:light}
+*{box-sizing:border-box}body{background:radial-gradient(ellipse at 84% 0%,#e4f4f3 0,transparent 36rem),var(--bg);color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.55}
+header{max-width:1440px;padding:20px 32px 10px}.brandline{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(18,33,42,.09);padding:0 0 18px}.brand{display:inline-flex;gap:10px;align-items:center;color:#183640;text-decoration:none;font-size:13px;font-weight:850;letter-spacing:.14em}.brandmark{width:30px;height:30px;display:grid;place-items:center;border-radius:10px;background:#087e8b;color:white;font-size:19px;letter-spacing:0}.local-pill{font-size:10px;font-weight:800;letter-spacing:.11em;color:#28645d;background:#e5f4ed;border:1px solid #cce8d9;border-radius:99px;padding:6px 11px}.local-pill i{display:inline-block;width:6px;height:6px;margin:0 6px 1px 0;border-radius:50%;background:#2c9d65}.hero-copy{padding:24px 0 10px}.eyebrow{font-size:10px;font-weight:850;letter-spacing:.15em;color:#39727a}.eyebrow span{padding:0 5px;color:#a3b0b3}h1{font:700 clamp(30px,4vw,43px)/1.08 ui-sans-serif,system-ui,sans-serif;letter-spacing:-.045em;margin:9px 0 8px}header p{font-size:15px;color:var(--muted);max-width:68ch;margin:0}
+main{max-width:1440px;padding:16px 32px 70px;grid-template-columns:minmax(290px,350px) minmax(0,1fr);gap:22px}aside{top:14px;max-height:calc(100vh - 24px);padding:0 4px 12px 0}.box,.sum,.tile,.card{border-radius:15px;box-shadow:var(--shadow)}.box{padding:18px;margin-bottom:14px}h2{font-size:13px;font-weight:800;letter-spacing:.01em}h3{font-size:18px;letter-spacing:-.02em}.drop{background:linear-gradient(135deg,#f4fbfc,#edf7f7);border:1.5px dashed #8bb8bc;border-radius:12px;padding:23px 12px;color:#45636a;font-weight:650}.drop small{font-weight:500}.drop.on,.drop:hover,.drop:focus-within{background:#e7f6f5;border-color:var(--accent)}button{border-color:#8bb8bc;color:#176d75;font-weight:650;transition:transform .15s,background .15s,box-shadow .15s}button:hover{background:#eff9f8;box-shadow:0 4px 12px rgba(8,126,139,.12);transform:translateY(-1px)}button.main{background:linear-gradient(135deg,#087e8b,#086c77);border:0;border-radius:11px;color:#fff;box-shadow:0 8px 20px rgba(8,126,139,.2);padding:13px;font-size:15px}button.main:hover{background:#075f69}.ck{padding:5px 2px!important;cursor:pointer}.ck input,.cl input{accent-color:var(--accent)}textarea,#cs{border-color:#d4e0e3;border-radius:10px;background:#f8fafb}textarea:focus,#cs:focus{outline:3px solid #b5e3e2;border-color:#68aeb0}.muted{line-height:1.55}.card{border-left-width:5px}.sum{padding:18px}.tile{padding:14px}.tag{padding:4px 11px;font-size:11px;letter-spacing:.035em;text-transform:uppercase}.chart{border-radius:10px}.msg{font-size:13px}.row{align-items:center}.cl{background:#fbfcfd;border:1px solid #e2eaec;border-radius:10px;padding:6px 10px}.cr{padding:4px 0}.chart canvas{max-width:100%}
+@media(max-width:860px){header{padding:16px 18px 8px}.brandline{padding-bottom:13px}.hero-copy{padding:20px 0 8px}main{padding:12px 18px 50px;grid-template-columns:1fr}aside{max-height:none;padding:0}#out{min-width:0}}
+@media(max-width:520px){.local-pill{font-size:8px;letter-spacing:.08em;padding:5px 8px}main{padding-left:12px;padding-right:12px}.box{padding:15px}.hero-copy p{font-size:14px}.cols{gap:10px}}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0b151a;--card:#142229;--ink:#e8f1f2;--muted:#a2b4b9;--accent:#69d0cc;--bad:#ff8b8b;--warn:#ffc36c;--ok:#72dda1;--grid:#2b4047;--flagbg:rgba(255,139,139,.16);--c1:#69d0cc;--c2:#ffc36c;--c3:#aab0ff;--shadow:0 12px 32px rgba(0,0,0,.16);color-scheme:dark} .brand{color:#e5f3f4}.brandmark{color:#072228}.local-pill{color:#aee6ca;background:#173329;border-color:#295741} .drop{background:#142a30;color:#bdd5d8;border-color:#39777e}textarea,#cs,.cl{background:#101d23;border-color:#344a50} }
+:root[data-theme="dark"]{--bg:#0b151a;--card:#142229;--ink:#e8f1f2;--muted:#a2b4b9;--accent:#69d0cc;--bad:#ff8b8b;--warn:#ffc36c;--ok:#72dda1;--grid:#2b4047;--flagbg:rgba(255,139,139,.16);--c1:#69d0cc;--c2:#ffc36c;--c3:#aab0ff;--shadow:0 12px 32px rgba(0,0,0,.16);color-scheme:dark}.dark .brand{color:#e5f3f4}
+.flight3d{padding:22px}.path-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.path-kicker{font-size:10px;font-weight:850;letter-spacing:.13em;color:#39727a}.path-head h3{margin:5px 0 0;font-size:23px}.path-source{background:#eaf5f4;color:#176d75;border:1px solid #cfe5e3;border-radius:99px;padding:5px 10px;font-size:11px;font-weight:750}.path-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:10px 0 14px}.path-meta>div{display:flex;flex-direction:column;padding:10px 12px;border:1px solid var(--grid);border-radius:10px;background:rgba(127,158,165,.055)}.path-meta small{font-size:9px;letter-spacing:.09em;color:var(--muted);font-weight:800}.path-meta b{font-size:14px;margin-top:3px}.flight3d .row{margin-top:12px}.flight3d canvas{border:1px solid var(--grid)}@media(max-width:600px){.path-meta{grid-template-columns:repeat(2,minmax(0,1fr))}.flight3d{padding:15px}.path-head{flex-direction:column;gap:8px}}
+@media print{body{background:#fff}header{padding-top:0}aside{display:none}main{display:block;max-width:none;padding:8px}.box,.sum,.tile,.card{box-shadow:none}}
+</style>
+</head><body>
+<header><div class="brandline"><a class="brand" href="#top" aria-label="Flightline home"><span class="brandmark">↗</span> FLIGHTLINE</a><span class="local-pill"><i></i> LOCAL FILE PROCESSING</span></div><div class="hero-copy"><div class="eyebrow">FLIGHT LOG WORKSPACE <span>·</span> FOUR FIRMWARE FAMILIES</div><h1>Make sense of your flight.</h1><p>Load a controller log to explore the channels it actually recorded. Follow the timeline, inspect evidence, and export a clear report.</p></div></header>
+<main id="top">
+<aside>
+<div class="box"><h2>1. Load your log</h2>
+<label class="drop" id="dz"><input type="file" id="file"><span id="fn">Drop a log here or tap to choose<br><small>.bbl .bfl .bin .ulg .log .csv .txt</small></span></label>
+<div class="row"><button id="demo">Try demo log</button></div><div class="msg" id="msg" role="alert"></div></div>
+<div class="box"><h2>2. What should I look at?</h2>
+<label class="ck"><input type="checkbox" value="mag"><span>Compass interference</span></label>
+<label class="ck"><input type="checkbox" value="vib"><span>Vibration</span></label>
+<label class="ck"><input type="checkbox" value="osc"><span>Oscillation / wobble</span></label>
+<label class="ck"><input type="checkbox" value="motors"><span>Motors and ESC balance</span></label>
+<label class="ck"><input type="checkbox" value="batt"><span>Battery and power</span></label>
+<label class="ck"><input type="checkbox" value="gps"><span>GPS quality</span></label>
+<label class="ck"><input type="checkbox" value="events"><span>Errors, failsafes and flight messages</span></label>
+<label class="ck"><input type="checkbox" value="scan"><span>Scan every channel for spikes and glitches</span></label>
+<label class="ck"><input type="checkbox" value="alt"><span>Altitude: barometer vs GPS</span></label>
+<button type="button" id="sa" style="margin-top:6px">Tick everything</button>
+<textarea id="q" placeholder="Or ask in your own words, e.g. “Did mag interference happen when I added throttle?”"></textarea>
+<h2 style="margin-top:16px">Pick any channels yourself</h2><input id="cs" placeholder="Search channels, e.g. gyro, motor, MAG"><div id="cl" class="cl"></div><p class="muted">Ticked channels get their own graph, stats and relationship check. Typing a channel name in your question works too. Nothing ticked means every check runs.</p></div>
+<button class="main" id="go">Analyze log</button>
+</aside>
+<section id="out"><div id="ov"></div><div id="ans"><div class="sum"><b>How it works</b><p class="muted">The analyzer reads your log, runs checks on the real numbers, and answers in simple words. Findings are evidence-based leads, not certified root-cause verdicts. Review the source channels and context before changing hardware or tuning. Press “Try demo log” to see an example.</p></div></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length,sd=a=>{const m=mean(a);return Math.sqrt(mean(a.map(x=>(x-m)**2)))};
+const srt=a=>[...a].sort((x,y)=>x-y),pct=(a,p)=>srt(a)[Math.min(a.length-1,Math.floor(a.length*p))],med=a=>pct(a,.5);
+const num=x=>{const n=parseFloat(x);return isFinite(n)?n:NaN};
+const pear=(a,b)=>{const ma=mean(a),mb=mean(b);let n=0,x2=0,y2=0;for(let i=0;i<a.length;i++){const x=a[i]-ma,y=b[i]-mb;n+=x*y;x2+=x*x;y2+=y*y}return n/Math.sqrt(x2*y2||1)};
+const slope=(a,b)=>{const ma=mean(a),mb=mean(b);let n=0,x2=0;for(let i=0;i<a.length;i++){n+=(a[i]-ma)*(b[i]-mb);x2+=(a[i]-ma)**2}return n/(x2||1)};
+const fmt=n=>Math.abs(n)>=100?n.toFixed(0):n.toFixed(1);
+let D=null,redraws=[];
+
+/* ---------- parsing ---------- */
+function parseText(txt,name){const L=txt.split(/\r?\n/);return L.slice(0,300).some(l=>l.startsWith('FMT,'))?parseAP(L,name):parseCSV(L,name)}
+function parseAP(L,name){const fm={},S={};
+ for(const l of L){if(!l)continue;const p=l.split(',').map(s=>s.trim());
+  if(p[0]==='FMT'){fm[p[3]]=p.slice(5);continue}
+  const c=fm[p[0]];if(!c)continue;const ti=c.findIndex(x=>x==='TimeUS'||x==='TimeMS');if(ti<0)continue;
+  const t=num(p[ti+1])/(c[ti]==='TimeUS'?1e6:1e3);
+  c.forEach((n,i)=>{if(i===ti)return;const v=num(p[i+1]);if(isNaN(v))return;const k=p[0]+'.'+n;(S[k]??={t:[],v:[]});S[k].t.push(t);S[k].v.push(v)})}
+ return fin({name,fw:'ArduPilot',S})}
+function parseCSV(L,name){let h=-1;
+ for(let i=0;i<L.length-1;i++){const c=L[i].split(',');if(c.length>5&&isNaN(num(c[0]))&&!isNaN(num(L[i+1].split(',')[0]))){h=i;break}}
+ if(h<0)throw new Error('I couldn’t find a table of numbers in this file. Export your log as CSV first.');
+ const cols=L[h].split(',').map(s=>s.trim()),R=L.slice(h+1).filter(Boolean).map(l=>l.split(','));
+ let ti=cols.findIndex(c=>/^(time|timestamp)/i.test(c));if(ti<0)ti=0;
+ const raw=R.map(r=>num(r[ti])),span=Math.max(...raw.slice(0,50000))-raw[0],sc=span>1e6?1e6:span>2000?1e3:1,t=raw.map(x=>x/sc);
+ const S={};cols.forEach((c,i)=>{if(i===ti||!c)return;const v=R.map(r=>num(r[i]));if(v.some(x=>!isNaN(x)))S[c]={t,v:v.map(x=>isNaN(x)?0:x)}});
+ const all=cols.join(' ');const fw=/timestamp|vehicle_|sensor_/i.test(all)?'PX4':/navState|navPos|nav\[|GPS_numSat/i.test(all)?'INAV':/loopIteration|gyroADC/i.test(all)?'Betaflight':'Unknown (generic CSV)';
+ return fin({name,fw,S})}
+function fin(d){const ks=Object.keys(d.S);if(!ks.length)throw new Error('No data channels found in this file.');
+ let t0=Infinity,t1=-Infinity;for(const k of ks){const t=d.S[k].t;if(t[0]<t0)t0=t[0];if(t.at(-1)>t1)t1=t.at(-1)}
+ for(const k of ks)d.S[k].t=d.S[k].t.map(x=>x-t0);(d.msgs||[]).forEach(m=>m.t-=t0);d.dur=t1-t0;d.modeSegs=modesOf(d);return d}
+
+/* ---------- binary parsers ---------- */
+const WL_AP=new Set(['MAG','BAT','VIBE','RCOU','GPS','CTUN','IMU','POWR']);
+/* ---------- binary parsers ---------- */
+async function parseAny(f){const u=new Uint8Array(await f.arrayBuffer());
+ if(u[0]===0x55&&u[1]===0x4c&&u[2]===0x6f&&u[3]===0x67)return parseULog(u,f.name);
+ if(u[0]===0xA3&&u[1]===0x95)return parseBin(u,f.name);
+ const hd=new TextDecoder('latin1').decode(u.subarray(0,400)).split('\n')[0];
+ if(/^H /.test(hd)&&!hd.includes(','))return parseBB(u,f.name);
+ return parseText(new TextDecoder().decode(u),f.name)}
+function parseBin(u,name){const dv=new DataView(u.buffer,u.byteOffset,u.length),td=new TextDecoder(),S={},msgs=[],n=u.length,fm={128:{len:89,name:'FMT',fmt:'BBnNZ',cols:['Type','Length','Name','Format','Columns']}};
+ const sz={b:1,B:1,M:1,h:2,H:2,c:2,C:2,i:4,I:4,e:4,E:4,L:4,f:4,n:4,N:16,Z:64,d:8,q:8,Q:8,a:64},sub={2:'Radio',3:'Compass',5:'Radio failsafe',6:'Battery failsafe',7:'GPS failsafe',8:'Ground station failsafe',9:'Fence failsafe',11:'GPS',12:'Crash check',16:'EKF check',17:'EKF failsafe',18:'Barometer',19:'CPU'};let p=0;
+ while(p+3<=n){if(u[p]!==0xA3||u[p+1]!==0x95){p++;continue}
+  const f=fm[u[p+2]];if(!f||p+f.len>n){p++;continue}
+  let o=p+3;const row=[];
+  for(const c of f.fmt){let v=0;switch(c){case'b':v=dv.getInt8(o);break;case'B':case'M':v=u[o];break;case'h':v=dv.getInt16(o,true);break;case'H':v=dv.getUint16(o,true);break;case'c':v=dv.getInt16(o,true)/100;break;case'C':v=dv.getUint16(o,true)/100;break;case'i':v=dv.getInt32(o,true);break;case'I':v=dv.getUint32(o,true);break;case'e':v=dv.getInt32(o,true)/100;break;case'E':v=dv.getUint32(o,true)/100;break;case'L':v=dv.getInt32(o,true)*1e-7;break;case'f':v=dv.getFloat32(o,true);break;case'd':v=dv.getFloat64(o,true);break;case'q':v=Number(dv.getBigInt64(o,true));break;case'Q':v=Number(dv.getBigUint64(o,true));break;case'n':case'N':case'Z':v=td.decode(u.subarray(o,o+sz[c])).replace(/\0[\s\S]*$/,'')}row.push(v);o+=sz[c]||0}
+  const id=u[p+2];p+=f.len;
+  if(id===128){fm[row[0]]={len:row[1],name:row[2],fmt:row[3],cols:row[4].split(',')};continue}
+  const c=f.cols,ti=c.indexOf('TimeUS'),t=ti>=0?row[ti]/1e6:NaN;
+  if(f.name==='MSG'){msgs.push({t,s:row[c.indexOf('Message')]});continue}
+  if(f.name==='ERR'){const s=row[c.indexOf('Subsys')],e=row[c.indexOf('ECode')];msgs.push({t,s:'Error: '+(sub[s]||'subsystem '+s)+(e?' triggered (code '+e+')':' cleared')});continue}
+  if(isNaN(t))continue;let ii=c.indexOf('I');if(ii<0)ii=c.indexOf('Instance');const nn=f.name+(ii>=0&&row[ii]>0?'#'+row[ii]:'');
+  c.forEach((k,i)=>{if(i===ti||i===ii||typeof row[i]!=='number'||isNaN(row[i]))return;const key=nn+'.'+k;(S[key]??={t:[],v:[]});S[key].t.push(t);S[key].v.push(row[i])})}
+ return fin({name,fw:'ArduPilot (binary .bin)',S,msgs})}
+function parseULog(u,name){const dv=new DataView(u.buffer,u.byteOffset,u.length),td=new TextDecoder(),F={},sb={},S={},msgs=[];let p=16;
+ const T={int8_t:[1,'getInt8'],uint8_t:[1,'getUint8'],bool:[1,'getUint8'],char:[1,'getUint8'],int16_t:[2,'getInt16'],uint16_t:[2,'getUint16'],int32_t:[4,'getInt32'],uint32_t:[4,'getUint32'],int64_t:[8,'getBigInt64'],uint64_t:[8,'getBigUint64'],float:[4,'getFloat32'],double:[8,'getFloat64']};
+ const lay=nm=>{const F0=F[nm];if(F0.fl)return F0.fl;let off=0;const items=[];
+  for(const fl of F0.fields){const m=fl.match(/^(\w+)(?:\[(\d+)\])?\s+(\w+)$/);if(!m)continue;const[,ty,cn,fn]=m,c=cn?+cn:1;
+   if(T[ty]){const[s,g]=T[ty];if(!fn.startsWith('_padding')&&ty!=='char')for(let i=0;i<c;i++)items.push({k:cn?fn+'['+i+']':fn,off:off+i*s,sz:s,g});off+=s*c}
+   else if(F[ty]){const l=lay(ty);for(let i=0;i<c;i++)for(const e of l.items)items.push({k:fn+(cn?'['+i+']':'')+'.'+e.k,off:off+i*l.size+e.off,sz:e.sz,g:e.g});off+=l.size*c}}
+  return F0.fl={items,size:off}};
+ while(p+3<=u.length){const s=dv.getUint16(p,true),ty=String.fromCharCode(u[p+2]),q=p+3;p=q+s;if(p>u.length)break;
+  if(ty==='F'){const x=td.decode(u.subarray(q,q+s)),i=x.indexOf(':');F[x.slice(0,i)]={fields:x.slice(i+1).split(';').filter(Boolean)}}
+  else if(ty==='A'){const w=td.decode(u.subarray(q+3,q+s));sb[dv.getUint16(q+1,true)]={w,nm:w+(u[q]?'_'+u[q]:'')}}
+  else if(ty==='L'){msgs.push({t:Number(dv.getBigUint64(q+1,true))/1e6,s:td.decode(u.subarray(q+9,q+s))})}
+  else if(ty==='D'){const a=sb[dv.getUint16(q,true)];if(!a||!F[a.w])continue;const l=lay(a.w),o=q+2,tm=l.items.find(e=>e.k==='timestamp');if(!tm)continue;const t=Number(dv.getBigUint64(o+tm.off,true))/1e6;
+   for(const e of l.items){if(e===tm)continue;let v=dv[e.g](o+e.off,true);if(typeof v==='bigint')v=Number(v);if(!isFinite(v))continue;const k=a.nm+'.'+e.k;(S[k]??={t:[],v:[]});S[k].t.push(t);S[k].v.push(v)}}}
+ return fin({name,fw:'PX4 (binary .ulg)',S,msgs})}
+function parseBB(u,name){const td=new TextDecoder('latin1'),H={};let p=0;
+ while(u[p]===72&&u[p+1]===32){let e=p;while(u[e]!==10&&e<u.length)e++;const l=td.decode(u.subarray(p,e)),i=l.indexOf(':');if(i>0)H[l.slice(2,i)]=l.slice(i+1);p=e+1}
+ const L=k=>(H[k]||'').split(',').filter(x=>x!=='').map(Number),nm=(H['Field I name']||'').split(',');
+ if(nm.length<3)throw new Error('This blackbox log has no field definitions. Export CSV from Blackbox Explorer instead.');
+ const D0={};for(const f of'IPSGH')D0[f]={pr:L('Field '+f+' predictor'),en:L('Field '+f+' encoding')};D0.P.en=D0.P.en.slice(0,nm.length);
+ const mt=+H.minthrottle||0,vr=+H.vbatref||0,m0=nm.indexOf('motor[0]'),ti=nm.indexOf('time'),b=()=>u[p++],uv=()=>{let v=0,s=0,c;do{c=b();v+=(c&127)*2**s;s+=7}while(c&128&&p<u.length);return v},sv=()=>{const v=uv();return v%2?-(v+1)/2:v/2};
+ const s8=x=>x>127?x-256:x,s16=x=>x>32767?x-65536:x,sb=(x,n)=>x>=2**(n-1)?x-2**n:x;let lastT=0,buf=0,nib=0;
+ function rd(d,pv,p2){const n=d.en.length,r=new Array(n).fill(0),c=new Array(n).fill(0);
+  for(let i=0;i<n;){const e=d.en[i];
+   if(e===0)r[i++]=sv();else if(e===1)r[i++]=uv();else if(e===3)r[i++]=-sb(uv()&0x3fff,14);else if(e===9)i++;
+   else if(e===6){let k=1;while(k<8&&d.en[i+k]===6)k++;if(k===1)r[i]=sv();else{const h=b();for(let j=0;j<k;j++)r[i+j]=h>>j&1?sv():0}i+=k}
+   else if(e===7){const l=b(),s=l>>6;let v;
+    if(s===0)v=[sb(l>>4&3,2),sb(l>>2&3,2),sb(l&3,2)];else if(s===1){const x=b();v=[sb(l&15,4),sb(x>>4,4),sb(x&15,4)]}else if(s===2){const x=b(),y=b();v=[sb(l&63,6),sb(x&63,6),sb(y&63,6)]}
+    else{v=[];for(let j=0;j<3;j++){const t=l>>2*j&3,a=t?b():0;v.push(t===0?s8(b()):t===1?s16(a|b()<<8):t===2?sb(a|b()<<8|b()<<16,24):(a|b()<<8|b()<<16|b()<<24)|0)}}
+    for(let j=0;j<3&&i+j<n;j++)r[i+j]=v[j];i+=3}
+   else if(e===8){let sl=b();nib=0;const v=[];for(let j=0;j<4;j++){const t=sl&3;sl>>=2;
+    if(t===0)v.push(0);else if(t===1){if(!nib){buf=b();v.push(sb(buf>>4,4));nib=1}else{v.push(sb(buf&15,4));nib=0}}
+    else if(t===2){if(!nib)v.push(s8(b()));else{let x=buf<<4&255;buf=b();x|=buf>>4;v.push(s8(x))}}
+    else{if(!nib){const x=b(),y=b();v.push(s16(x<<8|y))}else{let x=buf<<4&255;buf=b();x|=buf>>4;let y=buf<<4&255;buf=b();y|=buf>>4;v.push(s16(x<<8|y))}}}
+    for(let j=0;j<4&&i+j<n;j++)r[i+j]=v[j];i+=4}
+   else throw new Error('Unsupported blackbox encoding '+e+'. Export CSV from Blackbox Explorer instead.')}
+  for(let i=0;i<n;i++){let x=r[i];switch(d.pr[i]){case 1:x+=pv[i];break;case 2:x+=2*pv[i]-p2[i];break;case 3:x+=Math.trunc((pv[i]+p2[i])/2);break;case 4:x+=mt;break;case 5:x+=c[m0];break;case 6:x=pv[i]+1;break;case 8:x+=1500;break;case 9:x+=vr;break;case 10:x+=lastT}c[i]=x}
+  return c}
+ const Z=new Array(nm.length).fill(0),cols=nm.map(()=>[]);let pv=null,p2=null,lg=Z,tl=-1,bad=0;
+ const keep=c=>{const t=c[ti];if(tl>=0&&(t<tl||t-tl>3e6)){bad++;return}tl=t;c.forEach((x,i)=>cols[i].push(x))};
+ try{while(p<u.length){const f=String.fromCharCode(b());
+  if(f==='I'){const c=rd(D0.I,Z,Z);pv=p2=c;lastT=c[ti];tl=-1;keep(c)}
+  else if(f==='P'){const c=rd(D0.P,pv||Z,p2||Z);p2=pv||c;pv=c;lastT=c[ti];keep(c)}
+  else if(f==='S')rd(D0.S,Z,Z);else if(f==='G')lg=rd(D0.G,lg,lg);else if(f==='H')rd(D0.H,Z,Z);
+  else if(f==='E'){const e=b();if(e===255)break;if(e===0)uv()}}}catch(e){if(cols[0].length<20)throw e}
+ if(cols[0].length<20||bad>cols[0].length*.1)throw new Error('I couldn’t decode this blackbox file reliably. In Blackbox Explorer choose Export CSV, then load that file.');
+ const t=cols[ti].map(x=>x/1e6),S={};
+ nm.forEach((k,i)=>{if(i===ti||k==='loopIteration')return;let v=cols[i];if(/^vbat/i.test(k)){const m=Math.abs(med(v.slice(0,3000))),d=[1,10,100].find(d=>m/d>=3.3&&m/d<=60)||1;v=v.map(x=>x/d)}else if(/^amperage/i.test(k)&&v.reduce((a,x)=>x>a?x:a,-1e9)>500)v=v.map(x=>x/100);S[k]={t,v}});
+ return fin({name,fw:/INAV/i.test((H['Firmware revision']||'')+(H['Firmware type']||''))?'INAV (binary blackbox)':'Betaflight (binary blackbox)',S})}
+
+/* ---------- helpers ---------- */
+const K=re=>Object.keys(D.S).find(k=>re.test(k)),G=re=>{const k=K(re);return k?D.S[k]:null};
+function tri(res){for(const re of res){const k=Object.keys(D.S).filter(x=>re.test(x)).sort();if(k.length>=3)return k.slice(0,3).map(x=>D.S[x])}return null}
+const ds=(s,m=6000)=>{const k=Math.ceil(s.t.length/m);return k<=1?s:{t:s.t.filter((_,i)=>i%k==0),v:s.v.filter((_,i)=>i%k==0)}};
+function align(a,b){const v=[],n=b.t.length;let j=0;for(const t of a.t){while(j<n-2&&b.t[j+1]<t)j++;const k=Math.min(j+1,n-1),f=b.t[k]>b.t[j]?Math.min(1,Math.max(0,(t-b.t[j])/(b.t[k]-b.t[j]))):0;v.push(b.v[j]+(b.v[k]-b.v[j])*f)}return{t:a.t,v}}
+function mag3(tr,m){const a=ds(tr[0],m),b=align(a,ds(tr[1],m)),c=align(a,ds(tr[2],m));return{t:a.t,v:a.v.map((x,i)=>Math.hypot(x,b.v[i],c.v[i]))}}
+function hp(s){const n=s.v.length,w=Math.max(2,Math.round(n/(s.t[n-1]-s.t[0]||1)*.1)),pre=[0];for(const v of s.v)pre.push(pre.at(-1)+v);
+ return{t:s.t,v:s.v.map((x,i)=>{const a=Math.max(0,i-w),b=Math.min(n,i+w+1);return x-(pre[b]-pre[a])/(b-a)})}}
+function winrms(s,w=1){const t=[],v=[],n=s.t.length;let i=0;while(i<n){const t0=s.t[i];let j=i,a=0;while(j<n&&s.t[j]<t0+w){a+=s.v[j]**2;j++}t.push(t0+w/2);v.push(Math.sqrt(a/(j-i)));i=j}return{t,v}}
+function regs(t,v,thr){const o=[];let s=null;for(let i=0;i<v.length;i++){if(v[i]>thr){if(s===null)s=t[i]}else if(s!==null){o.push([s,t[i]]);s=null}}if(s!==null)o.push([s,t.at(-1)]);return o.slice(0,60)}
+const CUR=/^BAT\.Curr$|amperage|current_a$|^CURR\.Curr$/i,THR=/^CTUN\.ThO$|^CTUN\.ThI$|rcCommand\[3\]|^RCOU\.C1$|^motor\[0\]|actuator_outputs.*output\[0\]/i;
+const T=(v,c,title,say,saw,fix,P,Rg,extra)=>({v,c,title,say,saw,fix,P:P||[],Rg:Rg||[],...extra});
+const NA=(title,why)=>T('na',0,title,'I can’t check this: '+why,[],[]);
+
+/* ---------- checks ---------- */
+const checks={
+mag(){const ti='Compass interference',tr=tri([/^MAG\.Mag[XYZ]$/,/magnetometer_ga\[\d\]/,/^magADC\[\d\]/]);
+ if(!tr)return NA(ti,'this log has no compass data. Betaflight doesn’t record it; try an INAV, ArduPilot or PX4 log.');
+ const m=mag3(tr,6000),lg=G(CUR)||G(THR),ln=G(CUR)?'Current (A)':'Throttle',L=lg?align(m,ds(lg,6000)):null,mu=mean(m.v),cv=sd(m.v)/mu;
+ let r=0,chg=0;if(L){r=pear(L.v,m.v);chg=slope(L.v,m.v)*(pct(L.v,.95)-pct(L.v,.05))/mu*100}
+ const link=L&&r>.6&&cv>.04,saw=[`Compass strength varied by ${(cv*100).toFixed(1)}% around its average (a healthy compass stays almost flat).`];
+ if(L)saw.push(`Link between ${ln.toLowerCase()} and compass strength: r = ${r.toFixed(2)} (1 = move together, 0 = unrelated).`,`From low to high load the field changed about ${chg.toFixed(0)}%.`);
+ let v,c,say;
+ if(link){v='bad';c=Math.min(95,Math.round(62+Math.abs(r)*33));say=`Yes, compass interference very likely happened. The compass reading rises and falls with your ${ln.toLowerCase()}, which means the wires or motors are disturbing it.`}
+ else if(L&&r>.35&&cv>.025){v='warn';c=70;say='Possibly. The compass is partly following your load, but the link is weak.'}
+ else if(cv>.2){v='warn';c=65;say='The compass reading is unstable, but it doesn’t follow your throttle or current. Suspect nearby metal, a bad calibration, or a loose mount.'}
+ else{v='ok';c=85;say='No. The compass strength stayed steady and did not follow your load.'}
+ return T(v,c,ti,say,saw,v==='ok'?[]:['Move the compass/GPS on a mast at least 10 to 15 cm above the power wires and ESCs.','Twist the battery + and − wires together and route them away from the compass.','Redo compass calibration outdoors, away from metal and phones.','ArduPilot: run Compass Motor Calibration (COMPASSMOT). PX4: prefer the external compass and disable the internal one.','Check that no magnet, steel screw or speaker sits near the compass.'],
+  [{name:'Compass strength',...m,color:'--c1'},...(L?[{name:ln,...L,color:'--c2'}]:[])],regs(m.t,m.v,mu+1.5*sd(m.v)),{link})},
+vib(){const ti='Vibration',vb=tri([/^VIBE\.Vibe[XYZ]$/]);
+ if(vb){const a=ds(vb[0],6000),b=align(a,ds(vb[1],6000)),c=align(a,ds(vb[2],6000)),v=a.v.map((x,i)=>Math.max(x,b.v[i],c.v[i])),p95=pct(v,.95),mx=Math.max(...v);
+  const bad=p95>30,warn=p95>15;return T(bad?'bad':warn?'warn':'ok',90,ti,bad?'Yes, vibration is too high. The flight controller is seeing shaking that can confuse its position and attitude estimate.':warn?'Some vibration. It is borderline and worth fixing before it causes drift.':'No. Vibration stayed low.',[`Typical worst-axis vibration: ${p95.toFixed(0)} m/s² (good is under 15, trouble above 30).`,`Peak: ${mx.toFixed(0)} m/s².`],bad||warn?['Check props for chips or bends; replace any doubtful prop.','Check motor bells and bearings by spinning them by hand.','Soft-mount the flight controller (rubber grommets) and keep wires from pulling on it.','Tighten all screws; make sure the frame arms are not cracked.']:[],[{name:'Vibration (m/s²)',t:a.t,v,color:'--c1'}],regs(a.t,v,30))}
+ const tr=tri([/^IMU\.Acc[XYZ]$/,/^accADC\[\d\]/,/^accSmooth\[\d\]/,/accelerometer_m_s2\[\d\]/,/sensor_accel.*\.[xyz]$/]);
+ if(!tr)return NA(ti,'no accelerometer or vibration data found.');
+ const m=mag3(tr,20000),h=hp(m),rel=sd(h.v)/Math.abs(mean(m.v)),w=winrms(h),md=med(w.v),bad=rel>.25,warn=rel>.1;
+ return T(bad?'bad':warn?'warn':'ok',65,ti,bad?'Yes, the accelerometer shows strong fast shaking.':warn?'Mild shaking detected. Keep an eye on it.':'No clear vibration problem.',[`Fast shaking is ${(rel*100).toFixed(0)}% of the average acceleration (under 10% is healthy).`,'This is an estimate: low logging rates hide vibration, so a clean result here is less certain.'],bad||warn?['Check and balance props, and replace damaged ones.','Check motor bearings and bell screws.','Soft-mount the flight controller and secure wires.']:[],[{name:'Shaking strength',t:w.t,v:w.v,color:'--c1'}],regs(w.t,w.v,md*2.5))},
+osc(){const ti='Oscillation / wobble',tr=tri([/^GYR\.Gyr[XYZ]$/,/^IMU\.Gyr[XYZ]$/,/^gyroADC\[\d\]/,/angular_velocity.*xyz\[\d\]/,/sensor_gyro.*\.[xyz]$/]);
+ if(!tr)return NA(ti,'no gyro data found.');
+ const h=hp(mag3(tr,20000)),w=winrms(h),md=med(w.v)||1e-9,ratio=Math.max(...w.v)/md,bad=ratio>6,warn=ratio>3;
+ return T(bad?'bad':warn?'warn':'ok',65,ti,bad?'Yes, there are strong bursts of fast wobble in the flight.':warn?'Some short wobble bursts happened.':'No. The gyro stayed smooth for the whole flight.',[`The worst second was ${ratio.toFixed(1)}× rougher than a normal second (under 3× is normal).`],bad||warn?['Lower P and D gains a little (or lower the filter cutoff) and re-test.','Look at the red zones: if they match big stick moves it is a tune issue; if they appear at steady throttle it is vibration or a bad prop.','Check motors and props (see the Vibration card).','Betaflight/INAV: check gyro lowpass and D-term filters.']:[],[{name:'Gyro roughness',t:w.t,v:w.v,color:'--c1'}],regs(w.t,w.v,md*3))},
+motors(){const ti='Motors and ESC balance',ks=[/^motor\[\d\]/,/^RCOU\.C[1-4]$/,/actuator_outputs.*output\[[0-3]\]/].map(re=>Object.keys(D.S).filter(k=>re.test(k)).sort()).find(a=>a.length>=4);
+ if(!ks)return NA(ti,'no motor output channels found.');
+ const S4=ks.slice(0,4).map(k=>ds(D.S[k],4000)),n=Math.min(...S4.map(s=>s.v.length)),all=S4.flatMap(s=>s.v.slice(0,n)),lo=pct(all,.02),hi=pct(all,.995),rg=hi-lo||1;
+ const mm=S4.map(s=>mean(s.v.slice(0,n))),imb=(Math.max(...mm)-Math.min(...mm))/rg,top=mm.indexOf(Math.max(...mm))+1;
+ let sat=0;const smax=[];for(let i=0;i<n;i++){const m=Math.max(...S4.map(s=>s.v[i]));smax.push(m);if(m>=hi-.03*rg)sat++}sat/=n;
+ const bad=imb>.35||sat>.25,warn=imb>.2||sat>.08;
+ return T(bad?'bad':warn?'warn':'ok',75,ti,bad?'Yes, the motors are not sharing the work evenly or are running out of power.':warn?'Slight imbalance or limited power headroom.':'No. The four motors share the load evenly with headroom to spare.',[`Motor ${top} worked hardest; the gap between the busiest and laziest motor is ${(imb*100).toFixed(0)}% of the output range (under 20% is normal).`,`Time spent with a motor at or near maximum: ${(sat*100).toFixed(0)}%.`,`Average output per motor: ${mm.map((x,i)=>'M'+(i+1)+' '+x.toFixed(0)).join(', ')}.`],bad||warn?['Check the busiest motor’s prop, bearing and motor screws; a bent prop or weak motor makes its neighbours compensate.','Check the weight balance (centre of gravity) and battery position.','If a motor sits at maximum often, the drone is overweight or the battery is too weak; reduce weight or use a stronger battery.','Check ESC calibration and motor direction/order.']:[],S4.map((s,i)=>({name:'Motor '+(i+1),t:s.t.slice(0,n),v:s.v.slice(0,n),color:['--c1','--c2','--c3','--muted'][i]})),regs(S4[0].t.slice(0,n),smax,hi-.03*rg))},
+batt(){const ti='Battery and power',vg=G(/^BAT\.Volt$|vbatLatest|^vbat|voltage_v$/i);
+ if(!vg)return NA(ti,'no battery voltage found.');
+ const s=ds(vg,6000),k=Math.max(3,s.v.length>>5),v0=med(s.v.slice(0,k)),vmin=Math.min(...s.v),cells=Math.max(1,Math.round(v0/4.2)),pc=vmin/cells,cg=G(CUR),cs=cg?align(s,ds(cg,6000)):null;
+ const saw=[`Pack started at ${v0.toFixed(1)} V (about ${cells}S) and its lowest point was ${vmin.toFixed(1)} V, which is ${pc.toFixed(2)} V per cell.`,`Total voltage drop: ${((v0-vmin)/v0*100).toFixed(0)}%.`];
+ if(cs){const R=-slope(cs.v,s.v);saw.push(`Peak current ${Math.max(...cs.v).toFixed(0)} A; estimated pack resistance ${(R*1000).toFixed(0)} mΩ (a lower number is a healthier battery).`)}
+ const bad=pc<3.3,warn=pc<3.5;
+ return T(bad?'bad':warn?'warn':'ok',80,ti,bad?'Yes, the battery was pushed too low. This can cause brownouts, sudden power loss, or battery damage.':warn?'The battery got low. Land earlier next time.':'No. The battery stayed in a healthy range.',saw,bad||warn?['Land when the pack reaches about 3.5 V per cell under load.','If the voltage drops sharply when you add throttle, the battery is aging; test a fresh one.','Check connectors and solder joints for heat damage.','Set a low-voltage warning on your OSD or radio.']:[],[{name:'Battery (V)',...s,color:'--c1'},...(cs?[{name:'Current (A)',...cs,color:'--c2'}]:[])],regs(s.t,s.v.map(x=>-x),-(3.5*cells)))},
+gps(){const ti='GPS quality',sg=G(/^GPS\.NSats$|satellites_used|GPS_numSat|numSat/i),hg=G(/^GPS\.HDop$|hdop|^eph$|vehicle_gps_position.*eph/i);
+ if(!sg&&!hg)return NA(ti,'no GPS data found.');
+ const saw=[];let bad=false,warn=false,P=[],Rg=[];
+ if(sg){const s=ds(sg,4000),mn=Math.min(...s.v),av=mean(s.v);saw.push(`Satellites: average ${av.toFixed(0)}, lowest ${mn.toFixed(0)} (aim for 10 or more).`);if(av<6)bad=true;else if(mn<6)warn=true;P.push({name:'Satellites',...s,color:'--c1'});Rg=regs(s.t,s.v.map(x=>-x),-6)}
+ if(hg){const s=ds(hg,4000),mx=Math.max(...s.v);saw.push(`HDOP (position error, lower is better): worst ${mx.toFixed(1)} (under 1.5 is good, above 2 is poor).`);if(mx>2.5&&mean(s.v)>2)bad=true;else if(mx>2)warn=true;P.push({name:'HDOP',...s,color:'--c2'})}
+ return T(bad?'bad':warn?'warn':'ok',80,ti,bad?'Yes, GPS quality was poor for much of the flight.':warn?'GPS dipped at some moments.':'No. GPS was solid.',saw,bad||warn?['Fly in open sky and wait for a good lock before arming.','Keep the GPS away from the video transmitter and power wires; use a mast.','Check the GPS cable and connector.']:[],P,Rg)}};
+const names={mag:1,vib:1,osc:1,motors:1,batt:1,gps:1,events:1,scan:1,alt:1};
+function pick(q){const s=new Set([...document.querySelectorAll('.ck input:checked')].map(c=>c.value)),t=q.toLowerCase(),m=[[/mag|compass|yaw|heading|toilet/,'mag'],[/vib|shak|jello|noise/,'vib'],[/oscill|wobble|tune|pid|shake/,'osc'],[/motor|esc|prop|desync|thrust|spin|rpm|uneven|balance|more power|harder/,'motors'],[/batt|volt|sag|power|brown/,'batt'],[/gps|sat|position|hdop|drift/,'gps'],[/error|fail|crash|message|warn|event|why/,'events'],[/anomal|spike|glitch|everything|all param/,'scan'],[/alt|height|baro|climb|descen|sink/,'alt']];
+ m.forEach(([re,id])=>{if(re.test(t))s.add(id)});qchan(q);if(sel.size&&!s.size)return['custom'];if(sel.size)s.add('custom');return s.size?[...s]:Object.keys(names)}
+function rootCause(R){const b=id=>R[id]&&(R[id].v==='bad'||R[id].v==='warn'),o=[];
+ if(R.mag&&R.mag.link)o.push('Current in your power wires is bending the compass reading. When you throttle up, the heading estimate drifts, which causes yaw drift or “toilet bowl” circling.');
+ if(b('vib')&&b('motors'))o.push('Vibration plus uneven motors usually points to a bent or unbalanced prop, or a worn motor bearing, on the busiest motor.');
+ if(b('vib')&&b('osc'))o.push('The wobble bursts probably come from vibration reaching the gyro, so fix props and mounting before changing the tune.');
+ if(b('batt')&&b('motors'))o.push('A weak or sagging battery combined with maxed-out motors means the drone lacks power headroom: reduce weight or use a stronger pack.');
+ if(b('gps')&&b('mag'))o.push('GPS and compass trouble together often come from the same cause: electrical noise near the GPS/compass module.');
+ return o}
+
+/* ---------- rendering ---------- */
+function draw(cv,P,R){const W=Math.max(320,cv.parentNode.clientWidth),ph=170,M=D.modeSegs||[],top=M.length?24:6,H=top+P.length*ph+26,dp=devicePixelRatio||1;cv.width=W*dp;cv.height=H*dp;cv.style.width=W+'px';cv.style.height=H+'px';
+ const g=cv.getContext('2d');g.scale(dp,dp);const st=getComputedStyle(document.documentElement),c=n=>st.getPropertyValue(n).trim(),L=60,t1=Math.max(D.dur,...P.map(p=>p.t.at(-1))),X=t=>L+t/(t1||1)*(W-L-12),
+ step=[1,2,5,10,15,30,60,120,300,600,1200].find(s=>t1/s<=10)||1800,names=[...new Set(M.map(m=>m.n))],mc=n=>`hsl(${names.indexOf(n)*67%360} 60% 50%)`;g.font='11px system-ui,sans-serif';
+ M.forEach(m=>{const x=X(m.t0),w=Math.max(2,X(m.t1)-x);g.fillStyle=mc(m.n);g.globalAlpha=.1;g.fillRect(x,2,w,H-8);g.globalAlpha=.4;g.fillRect(x,2,w,16);g.globalAlpha=1;g.fillStyle=c('--ink');if(w>34)g.fillText(m.n,x+4,14)});
+ P.forEach((p,i)=>{const y0=top+i*ph+18,h=ph-46;let lo=Infinity,hi=-Infinity;for(const v of p.v){if(v<lo)lo=v;if(v>hi)hi=v}if(hi===lo){hi++;lo--}
+  const Y=v=>y0+h-(v-lo)/(hi-lo)*h;g.fillStyle=c('--flagbg');for(const[a,b]of R||[])g.fillRect(X(a),y0,Math.max(2,X(b)-X(a)),h);
+  g.strokeStyle=c('--grid');g.lineWidth=1;g.fillStyle=c('--muted');g.textAlign='right';
+  for(let k=0;k<=4;k++){const v=lo+(hi-lo)*k/4,y=Y(v);g.beginPath();g.moveTo(L,y);g.lineTo(W-12,y);g.stroke();g.fillText(fmt(v),L-5,y+4)}
+  g.textAlign='center';for(let t=0;t<=t1;t+=step){const x=X(t);g.beginPath();g.moveTo(x,y0);g.lineTo(x,y0+h);g.stroke();g.fillText(t+' s',x,y0+h+14)}
+  g.textAlign='left';g.fillStyle=c('--ink');g.font='bold 12px system-ui,sans-serif';g.fillText(p.name,L,y0-5);g.font='11px system-ui,sans-serif';
+  g.strokeStyle=c(p.color);g.lineWidth=1.6;g.beginPath();const k=Math.ceil(p.t.length/(W*1.5));let f=1;for(let j=0;j<p.t.length;j+=k){const x=X(p.t[j]),y=Y(p.v[j]);f?(g.moveTo(x,y),f=0):g.lineTo(x,y)}g.stroke()});
+ g.fillStyle=c('--muted');g.textAlign='right';g.fillText('Time since log start (s)',W-12,H-6)}
+const E=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e};
+const li=a=>a.map(x=>`<li>${x}</li>`).join('');
+const LBL={bad:'Problem found',warn:'Possible problem',ok:'All fine',na:'No data',info:'Info'};
+function render(R,ids){const out=$('#ans');out.innerHTML='';redraws=[];const qv=$('#q').value.trim();if(qv){const b=E('div','sum');b.innerHTML='<b>Your question:</b> ';b.append(document.createTextNode(qv));out.append(b)}
+ const row=E('div','row');const cp=E('button',null,'Copy summary for Claude (AI deep dive)'),pr=E('button',null,'Print or save report');
+ cp.onclick=async()=>{const txt=`I flew a ${D.fw} drone. My log analyzer found:\n`+ids.map(i=>`- ${R[i].title}: ${LBL[R[i].v]}. ${R[i].say} ${R[i].saw.join(' ')}`).join('\n')+'\nExplain the root cause in simple words and what to fix first.';try{await navigator.clipboard.writeText(txt);cp.textContent='Copied. Paste it into Claude.'}catch(e){prompt('Copy this:',txt)}};
+ pr.onclick=()=>print();row.append(cp,pr);out.append(row);
+ for(const id of ids){const r=R[id],card=E('div','card '+r.v);
+  card.innerHTML=`<div class="top"><h3>${r.title}</h3><span class="tag">${LBL[r.v]}${r.c?' · '+r.c+'% sure':''}</span></div><p class="muted">${EXPL[id]?'<b>In simple words:</b> '+EXPL[id]:''}</p><p class="say">${r.v==='bad'||r.v==='warn'?'<b>Root cause: </b>':''}${r.say}</p>`;
+  if(r.saw.length||r.fix.length){const sw=(r.v==='bad'||r.v==='warn')?(PF[id]||{})[fam()]:null,c=E('div','cols');c.innerHTML=`<div><h4>What your data shows</h4><ul>${li(r.saw)}</ul></div>${r.fix.length||sw?`<div>${r.fix.length?`<h4>Hardware checks</h4><ol>${li(r.fix)}</ol>`:''}${sw?`<h4>Software settings (${D.fw.split(' ')[0]})</h4><ul>${sw.map(x=>{const[a,b]=x.split('|');return`<li><code>${a}</code>${b?' <span class="muted">'+b+'</span>':''}</li>`}).join('')}</ul><p class="muted">These are starting values, not guarantees. Change one setting at a time and test fly. Names can differ between firmware versions.</p>`:''}</div>`:''}`;card.append(c)}
+  if(r.P.length){const w=E('div','chart'),cv=E('canvas');w.append(cv);card.append(w);card.append(E('p','muted','<b>How to read this graph:</b> '+(GR[id]||'')+(r.Rg.length?' Red zones mark where the problem is strongest.':'')));redraws.push(()=>draw(cv,r.P,r.Rg))}
+  out.append(card)}
+ redraws.forEach(f=>f())}
+addEventListener('resize',()=>redraws.forEach(f=>f()));
+matchMedia('(prefers-color-scheme:dark)').addEventListener('change',()=>redraws.forEach(f=>f()));
+
+
+/* ---------- extra checks: events, scan every channel, your channels ---------- */
+let sel=new Set();
+function qchan(q){if(!D)return;const n=s=>s.toLowerCase().replace(/[^a-z0-9]/g,'');for(const w of q.split(/[\s,;]+/)){const x=n(w);if(x.length<4)continue;Object.keys(D.S).filter(k=>n(k)===x).forEach(k=>sel.add(k))}}
+checks.events=()=>{const ti='Errors, failsafes and flight messages';if(!D.msgs)return NA(ti,'this log type does not store text messages. Use an ArduPilot .bin or PX4 .ulg file for this.');
+ const m=D.msgs.filter(x=>/fail|err|crash|critical|lost|bad|unhealth|ekf|brown|batter|gps|compass|glitch|warn|disarm/i.test(x.s));
+ return m.length?T('warn',70,ti,`The flight controller logged ${m.length} warning or error message${m.length>1?'s':''}. Read them in time order: the first one is usually the trigger and the later ones are side effects.`,m.slice(0,15).map(x=>`${isNaN(x.t)?'?':x.t.toFixed(1)} s: ${x.s}`),['Search each message text in your firmware’s docs or forum.','Fix the earliest message first, then fly again and re-check.','Compare the time of each message with the graphs of the other checks.']):T('ok',80,ti,'No warnings or errors were logged.',[`${D.msgs.length} normal messages in the log.`],[])};
+checks.scan=()=>{const ti='All-channel scan',ks=Object.keys(D.S).slice(0,600),hits=[];
+ for(const k of ks){const s=ds(D.S[k],3000),v=s.v,n=v.length;if(n<30)continue;const mu=mean(v),d=sd(v);if(!d)continue;let c=0,mx=0,at=0;for(let i=0;i<n;i++){const z=Math.abs(v[i]-mu)/d;if(z>7){c++;if(z>mx){mx=z;at=i}}}
+  if(c>0&&c<=Math.max(3,n*.01))hits.push({k,c,mx,t:s.t[at],s})}
+ hits.sort((a,b)=>b.mx-a.mx);const top=hits.slice(0,8);
+ return T(top.length?'warn':'ok',60,ti,top.length?`I scanned ${ks.length} channels and found sudden spikes in ${hits.length}. Spikes are not always faults, but a spike right before a problem is a strong clue.`:`I scanned ${ks.length} channels and found no sudden spikes.`,top.map(h=>`<b>${h.k}</b>: ${h.c} spike${h.c>1?'s':''}, biggest at ${h.t.toFixed(1)} s (${h.mx.toFixed(0)}× the normal swing)`),top.length?['Tick these channels under “Pick any channels yourself” to see them.','Compare spike times with the Errors and Battery cards.','A spike in one sensor only, with others calm, usually means a sensor or wiring glitch.']:[],top.slice(0,3).map((h,i)=>({name:h.k,...h.s,color:['--c1','--c2','--c3'][i]})),top.slice(0,3).map(h=>[h.t-.3,h.t+.3]))};
+checks.custom=()=>{const ti='Your chosen channels',ks=[...sel].filter(k=>D.S[k]).slice(0,8);if(!ks.length)return NA(ti,'no matching channel was selected.');
+ const P=[],saw=[],ss=ks.map(k=>ds(D.S[k],4000));
+ ks.forEach((k,i)=>{const v=ss[i].v;P.push({name:k,...ss[i],color:['--c1','--c2','--c3'][i%3]});saw.push(`<b>${k}</b>: lowest ${fmt(Math.min(...v))}, highest ${fmt(Math.max(...v))}, average ${fmt(mean(v))}, typical swing ${fmt(sd(v))}`)});
+ for(let i=0;i<Math.min(4,ks.length);i++)for(let j=i+1;j<Math.min(4,ks.length);j++){const r=pear(ss[i].v,align(ss[i],ss[j]).v);saw.push(`${ks[i]} and ${ks[j]}: ${Math.abs(r)>.7?(r>0?'move together':'move in opposite directions'):Math.abs(r)>.4?'weakly related':'not related'} (r = ${r.toFixed(2)})`)}
+ return T('info',0,ti,'Here is each channel you picked, with its range and how the channels relate. Strongly related channels often share a cause.',saw,[],P,[])};
+function plotSel(){if(sel.size)render({custom:checks.custom()},['custom']);else $('#ans').innerHTML=''}
+function chanList(){const box=$('#cl');box.innerHTML='';if(!D)return;const q=$('#cs').value.toLowerCase(),gr={};
+ Object.keys(D.S).filter(k=>k.toLowerCase().includes(q)).forEach(k=>{const g=k.includes('.')?k.split('.')[0]:k.replace(/\[.*|\s*\(.*/,'');(gr[g]??=[]).push(k)});
+ Object.keys(gr).sort().slice(0,200).forEach(g=>{const d=E('details'),sm=E('summary',null,`${g} <span class="muted">(${gr[g].length})</span>`);d.append(sm);if(q||gr[g].some(k=>sel.has(k)))d.open=true;
+  gr[g].slice(0,80).forEach(k=>{const l=E('label','cr'),c=E('input');c.type='checkbox';c.checked=sel.has(k);c.onchange=()=>{c.checked?sel.add(k):sel.delete(k);plotSel()};l.append(c,E('span',null,k.startsWith(g+'.')?k.slice(g.length+1):k));d.append(l)});box.append(d)});
+ box.append(E('p','muted',`${Object.keys(gr).length} groups. Tick a channel to plot it right away.`))}
+$('#cs').oninput=chanList;$('#sa').onclick=()=>document.querySelectorAll('.ck input').forEach(c=>c.checked=true);
+
+const AM={0:'Stabilize',1:'Acro',2:'AltHold',3:'Auto',4:'Guided',5:'Loiter',6:'RTL',7:'Circle',9:'Land',11:'Drift',13:'Sport',15:'AutoTune',16:'PosHold',17:'Brake',21:'SmartRTL'},PM={0:'Manual',1:'Altitude',2:'Position',3:'Mission',4:'Hold',5:'Return',10:'Acro',12:'Descend',14:'Offboard',15:'Stabilized',17:'Takeoff',18:'Land'};
+function modesOf(d){const k=Object.keys(d.S).find(x=>/^MODE\.Mode$|vehicle_status\.nav_state$|^navState$/i.test(x));if(!k)return[];const s=d.S[k],mp=/Ardu/.test(d.fw)?AM:PM,o=[];
+ s.v.forEach((v,i)=>{if(!o.length||o.at(-1).v!==v)o.push({v,t0:s.t[i]})});o.forEach((m,i)=>{m.t1=i<o.length-1?o[i+1].t0:d.dur;m.n=mp[m.v]||'Mode '+m.v});if(o.length)o[0].t0=0;return o}
+const ALT=[[/^CTUN\.BAlt$|^CTUN\.Alt$|^BARO\.Alt$|^POS\.RelHomeAlt$/,1],[/vehicle_local_position\.z$/,-1],[/^baroalt/i,.01],[/^navPos\[2\]/,.01]],SPD=[[/^GPS\.Spd$/,1],[/vehicle_gps_position\.vel_m_s$/,1],[/GPS_speed/i,1]];
+const pickS=l=>{for(const[re,sc]of l){const k=K(re);if(k)return{s:D.S[k],sc}}};let ovDraw=null;
+addEventListener('resize',()=>ovDraw&&ovDraw());
+function overview(){const ov=$('#ov');$('#ans').innerHTML='<div class="sum"><b>Ask about this flight</b><p class="muted">Type a question (for example “Did any motor give more thrust?” or “Was there compass interference?”), or tick a check or channels on the left, then press Analyze. You get a yes or no, the root cause, the fix and the graph that proves it.</p></div>';
+ const tl=[],NA2=t=>tl.push({t,b:'Not recorded',s:'This log has no matching data.',st:'na'});
+ tl.push({t:'Flight time',b:`${Math.floor(D.dur/60)} min ${Math.round(D.dur%60)} s`,s:D.fw+', '+Object.keys(D.S).length+' channels',st:'info'});
+ const ms=D.modeSegs||[];if(ms.length){const a={};ms.forEach(m=>a[m.n]=(a[m.n]||0)+m.t1-m.t0);tl.push({t:'Flight modes',b:ms.length+' mode'+(ms.length>1?'s':''),s:Object.entries(a).sort((x,y)=>y[1]-x[1]).slice(0,4).map(([n,v])=>`${n} ${v.toFixed(0)} s`).join(', '),st:'info'})}else NA2('Flight modes');
+ const AS=altSrc(),sp=pickS(SPD);let aP=null,aP2=null,sP=null;
+ if(AS.baro||AS.gps){const f=a=>Math.max(...a.v).toFixed(0);if(AS.baro)aP={name:'Altitude: barometer (m above start)',...AS.baro,color:'--c1'};if(AS.gps)aP2={name:'Altitude: GPS (m above start)',...AS.gps,color:'--c2'};
+  tl.push({t:'Altitude',b:AS.baro?f(AS.baro)+' m (baro)':f(AS.gps)+' m (GPS)',s:(AS.baro?'Barometer max '+f(AS.baro)+' m':'No barometer data')+'; '+(AS.gps?'GPS max '+f(AS.gps)+' m':'No GPS height'),st:'info'})}else NA2('Altitude');
+ if(sp){const s=ds(sp.s,6000),mx=Math.max(...s.v);sP={name:'Ground speed (m/s)',...s,color:'--c3'};tl.push({t:'Flight speed',b:mx.toFixed(1)+' m/s max',s:`${(mx*3.6).toFixed(0)} km/h top speed, ${mean(s.v).toFixed(1)} m/s average`,st:'info'})}else NA2('Flight speed');
+ [['gps','GPS'],['mag','Compass'],['vib','Vibration'],['motors','Motor thrust'],['batt','Power']].forEach(([id,t])=>{try{const r=checks[id]();tl.push({t,b:{ok:'Good',warn:'Watch',bad:'Problem',na:'No data'}[r.v],s:r.v==='na'?'This log has no matching data.':r.saw[0]||r.say,st:r.v})}catch(e){}});
+ const vg=G(/^BAT\.Volt$|vbatLatest|^vbat|voltage_v$/i),P=[aP,aP2,sP,vg&&{name:'Battery voltage (V)',...ds(vg,6000),color:'--c2'}].filter(Boolean);
+ ov.innerHTML=`<div class="sum"><b>${D.name}</b><p class="muted">Overall review of this flight. No log analysis can be 100% certain, so every finding shows how strong its evidence is. Always compare with your own flight experience.</p></div><div class="tiles">${tl.map(x=>`<div class="tile ${x.st}"><span>${x.t}</span><b>${x.b}</b><small>${x.s}</small></div>`).join('')}</div>`;
+ let v3=null;const TR=track();if(TR){v3=view3d(TR);ov.append(v3.el)}else ov.append(E('div','sum','<b>3D flight path</b><p class="muted">This log did not contain enough valid GPS coordinates or local position samples to draw a path. The viewer needs at least 10 usable position points.</p>'));
+ if(P.length){const w=E('div','chart'),cv=E('canvas');w.append(cv);ov.insertBefore(w,v3?v3.el:null);ovDraw=()=>{draw(cv,P,[]);v3&&v3.paint()};ovDraw()}else{ovDraw=v3?v3.paint:null;v3&&v3.paint()}}
+const fam=()=>/Ardu/.test(D.fw)?'ap':/PX4/.test(D.fw)?'px4':/INAV/.test(D.fw)?'inav':'bf';
+const EXPL={mag:'The compass tells the drone where north is. Power wires carry current, and current makes a small magnetic field. If the compass reading changes when you add throttle, the drone gets confused about which way it is facing.',
+vib:'Vibration is shaking caused by props and motors. Too much shaking blurs the sensors, so the drone can think it is moving when it is not.',
+osc:'Oscillation is a fast wobble. It happens when the drone over-corrects itself, or when noise reaches the gyro.',
+motors:'The four motors should share the work evenly. If one works much harder than the others, something is different around that motor: prop, motor, ESC or weight balance.',
+batt:'The battery pushes current to the motors. Under load the voltage drops (sag). If it drops too low, the drone can lose power.',
+gps:'GPS gives the drone its position. More satellites and a low HDOP number mean a more trustworthy position.',
+alt:'The barometer finds height from air pressure and GPS finds it from satellites. Both should rise and fall together. If they split apart, one of them is drifting.',
+events:'These are warnings the flight controller wrote down by itself during the flight.',scan:'This looks at every recorded signal for sudden jumps that normal flying does not cause.',custom:'These are the signals you picked, shown with their ranges and how they relate to each other.'};
+const GR={mag:'The top line is compass strength and the bottom line is throttle or current. If both rise and fall together, that is interference.',vib:'A higher line means more shaking.',osc:'Each point is how rough the gyro was in that second. Tall peaks are wobble bursts.',motors:'Each line is one motor. A line sitting above the others is the motor working hardest.',batt:'The top line is voltage and the bottom is current. A dip while current rises is normal sag; a deep dip is a weak battery.',gps:'Satellites should stay high and HDOP should stay low.',alt:'The first two lines are barometer and GPS height above the start point. The last line is the gap between them.',scan:'Each graph is a channel with a sudden spike near the red zone.',custom:'Each graph is one of your channels against time, with flight modes as colored bands.'};
+const PF={
+mag:{ap:['COMPASS_MOTCT=2|compensate the compass using motor current; then run Compass Motor Calibration so COMPASS_MOT_X/Y/Z are filled in','COMPASS_USE=0|turn off the internal compass if you fly with an external one (COMPASS_USE2 or COMPASS_USE3 for the others)','COMPASS_LEARN=0|stop offset learning in flight after a clean calibration'],
+ px4:['CAL_MAG_PRIME=your external compass|use the external compass, not the one on the flight controller','EKF2_MAG_TYPE=1|use the compass only for heading','Recalibrate the compass (QGroundControl, Sensors)|do it outdoors, away from metal'],
+ inav:['mag_calibration_time=30|redo compass calibration slowly, turning the drone on all sides','align_mag_yaw=0, 900, 1800 or 2700|fix the compass direction if heading is off','mag_hardware=NONE|last resort: fly without compass using GPS heading'],bf:['Betaflight does not use a compass in normal flight, so there is no setting to change.']},
+vib:{ap:['INS_HNTCH_ENABLE=1, INS_HNTCH_MODE=1, INS_HNTCH_REF=MOT_THST_HOVER|turn on the harmonic notch; set INS_HNTCH_FREQ near your hover motor noise and INS_HNTCH_BW to half of it','INS_GYRO_FILTER=40 (try 20 if still noisy)|lower the gyro low-pass filter','INS_ACCEL_FILTER=10|smooth the accelerometer','INS_LOG_BAT_MASK=1|log raw gyro, then use the FFT tool to find the exact noise frequency'],
+ px4:['IMU_GYRO_CUTOFF=30 (try 20)|lower the gyro filter','IMU_DGYRO_CUTOFF=20|calmer D term','IMU_GYRO_DNF_EN=1|dynamic notch that follows ESC RPM (needs DShot telemetry)','IMU_GYRO_NF0_FRQ=your noise Hz|manual notch at the noise peak'],
+ inav:['dynamic_gyro_notch_enabled=ON, dynamic_gyro_notch_q=250|dynamic notch','gyro_main_lpf_hz=60 (try 50)|lower the gyro filter','acc_notch_hz=15, acc_notch_cutoff=1|accelerometer notch'],
+ bf:['dyn_notch_count=3, dyn_notch_q=300, dyn_notch_min_hz=100|dynamic notch','gyro_lpf1_static_hz: lower by 20 to 30%|stronger gyro filter','dshot_bidir=ON, rpm_filter_harmonics=3|RPM filter (needs ESCs that send RPM)','dterm_lpf1_static_hz: lower by 10 to 20%|calmer D term, cooler motors']},
+osc:{ap:['ATC_RAT_RLL_P and ATC_RAT_PIT_P: lower by 20%|less aggressive correction','ATC_RAT_RLL_D and ATC_RAT_PIT_D: lower by 20%|less noise feeding the motors','AUTOTUNE_AXES=7, then fly AutoTune|let the autopilot find good gains'],
+ px4:['MC_ROLLRATE_P and MC_PITCHRATE_P: lower by 20%|less aggressive','MC_ROLLRATE_D and MC_PITCHRATE_D: lower by 20%|less noise','MC_AT_EN=1, then run autotune|automatic tuning'],
+ inav:['mc_p_roll and mc_p_pitch: lower by 15 to 20%|less aggressive','mc_d_roll and mc_d_pitch: lower by 15 to 20%|calmer D term','Use the AUTOTUNE flight mode|automatic tuning'],
+ bf:['p_roll and p_pitch: lower by 10 to 15%|less aggressive','d_roll and d_pitch (or d_min): lower by 10 to 15%|less noise','tpa_rate=65, tpa_breakpoint=1350|reduce gains at high throttle where wobble often starts']},
+motors:{ap:['MOT_SPIN_MIN=0.15, MOT_SPIN_ARM=0.10|raise idle so no motor stalls','MOT_THST_EXPO=0.65|thrust curve; check the right value for your motor and prop','MOT_PWM_TYPE=6|DShot600, no ESC calibration needed (if your ESCs support it)','MOT_BAT_VOLT_MAX=4.2 × cells, MOT_BAT_VOLT_MIN=3.3 × cells|battery voltage compensation'],
+ px4:['THR_MDL_FAC=0.3|straightens the motor thrust curve (0 to 1)','MPC_THR_HOVER=your real hover throttle|correct hover value','DSHOT_CONFIG=600|digital signal instead of PWM'],
+ inav:['throttle_idle=10|idle throttle in percent','motor_pwm_protocol=DSHOT300|digital signal'],bf:['dshot_idle_value=550|raise idle (5.5%) if a motor stalls or desyncs','motor_output_limit=100|do not limit motor power','dshot_bidir=ON|RPM feedback, better motor control','motor_poles=14|correct for most 5 inch motors; wrong value breaks the RPM filter']},
+batt:{ap:['BATT_LOW_VOLT=3.5 × cells, BATT_CRT_VOLT=3.3 × cells|warn in time','BATT_FS_LOW_ACT=2, BATT_FS_CRT_ACT=1|return home on low, land on critical','BATT_ARM_VOLT=3.7 × cells|refuse to arm on a weak pack','BATT_CAPACITY=your mAh|correct remaining percentage'],
+ px4:['BAT1_N_CELLS=your cell count','BAT_LOW_THR=0.20, BAT_CRIT_THR=0.10, BAT_EMERGEN_THR=0.05|warning levels','COM_LOW_BAT_ACT=3|return at critical, land at emergency'],
+ inav:['vbat_min_cell_voltage=330, vbat_warning_cell_voltage=350|values are in 0.01 V','vbat_scale|calibrate against a multimeter','battery_capacity and battery_capacity_warning|set for your pack'],
+ bf:['vbat_min_cell_voltage=330, vbat_warning_cell_voltage=350|values are in 0.01 V','vbat_sag_compensation=100|keeps power steady while voltage sags','vbat_scale|calibrate against a multimeter']},
+gps:{ap:['GPS_GNSS_MODE|enable several satellite systems (GPS, Galileo, BeiDou) on a u-blox GPS','AHRS_GPS_MINSATS=6|minimum satellites to trust GPS'],
+ px4:['EKF2_REQ_NSATS=6, EKF2_REQ_HDOP=2.0|require a decent GPS fix','GPS_UBX_DYNMODEL=6|airborne dynamics model for u-blox'],
+ inav:['gps_min_sats=6|minimum satellites to arm','gps_ublox_use_galileo=ON|more satellites','gps_sbas_mode=AUTO'],bf:['gps_ublox_use_galileo=ON|more satellites','gps_rescue_min_sats=8|GPS Rescue needs enough satellites','gps_rescue_sanity_checks=RESCUE_SANITY_ON|abort a bad rescue']},
+alt:{ap:['EK3_SRC1_POSZ=1|1 trusts the barometer, 3 trusts GPS height; pick the healthier one','BARO_PRIMARY=0 or 1|choose the better barometer if you have two'],
+ px4:['EKF2_HGT_REF=0|0 uses the barometer, 1 uses GPS height','EKF2_BARO_NOISE=3.5|raise if the baro is noisy','EKF2_GPS_P_NOISE=0.5|raise if GPS height jumps'],
+ inav:['inav_w_z_baro_p=0.35|how much to trust the barometer','inav_w_z_gps_p=0.2|how much to trust GPS height'],bf:['gps_rescue_altitude_mode=MAX_ALT, gps_rescue_initial_alt=30|altitude only matters for GPS Rescue']}};
+const ALTB=[[/^BARO\.Alt$|^CTUN\.BAlt$|vehicle_air_data\.baro_alt_meter$/,1],[/^baroalt/i,.01]],ALTG=[[/^GPS\.Alt$/,1],[/vehicle_gps_position\.alt$/,.001],[/^GPS_altitude/i,1]],POSG=[[/^GPS\.Lat$/,/^GPS\.Lng$/],[/vehicle_gps_position\.lat$/,/vehicle_gps_position\.lon$/],[/^GPS_coord\[0\]/,/^GPS_coord\[1\]/]];
+function altSrc(){const f=l=>{const a=pickS(l);if(!a)return null;const s=ds(a.s,6000),v=s.v.map(x=>x*a.sc),b=med(v.slice(0,Math.max(5,v.length/50|0)));return{t:s.t,v:v.map(x=>x-b)}};return{baro:f(ALTB),gps:f(ALTG)}}
+checks.alt=()=>{const ti='Altitude: barometer vs GPS',A=altSrc();if(!A.baro&&!A.gps)return NA(ti,'no altitude data found.');
+ if(!A.baro||!A.gps){const o=A.baro||A.gps;return T('info',0,ti,`Only ${A.baro?'barometer':'GPS'} height is in this log, so I can’t compare the two.`,[`Max height above start: ${Math.max(...o.v).toFixed(0)} m.`],[],[{name:(A.baro?'Barometer':'GPS')+' height (m)',...o,color:'--c1'}])}
+ const g=align(A.baro,A.gps),d=A.baro.v.map((x,i)=>x-g.v[i]),mx=Math.max(...d.map(Math.abs)),q=Math.max(3,d.length/5|0),dr=Math.abs(mean(d.slice(-q))-mean(d.slice(0,q))),bad=mx>8||dr>6,warn=mx>4||dr>3;
+ return T(bad?'bad':warn?'warn':'ok',75,ti,bad?'Yes, the barometer and GPS disagree a lot. One of them is drifting, so the drone may climb or sink by itself in Loiter or Altitude Hold.':warn?'The two heights differ a little. Keep an eye on it.':'No. Barometer and GPS height agree.',[`Biggest gap between them: ${mx.toFixed(1)} m (under 4 m is normal, GPS height is naturally off by a few meters).`,`Gap at the end compared with the start: ${dr.toFixed(1)} m.`],bad||warn?['Cover the barometer with a small piece of foam so wind and prop wash do not hit it, and keep it out of direct light.','Do not seal it completely; it needs a tiny air vent.','Wait for a good GPS lock before arming; vertical GPS error is bigger than horizontal.','Sudden jumps in the barometer line point to prop wash or a damaged sensor.']:[],[{name:'Barometer height (m)',...A.baro,color:'--c1'},{name:'GPS height (m)',...g,color:'--c2'},{name:'Barometer minus GPS (m)',t:A.baro.t,v:d,color:'--c3'}],regs(A.baro.t,d.map(Math.abs),4))};
+function track(){let t,N,Ea,posSource='GPS coordinates',lat0=null,lon0=null;
+ for(const[a,b]of POSG){const ka=K(a),kb=K(b);if(!ka||!kb)continue;const A=ds(D.S[ka],1500),B=align(A,ds(D.S[kb],1500));let lat=A.v.slice(),lon=B.v.slice();
+  if(Math.abs(med(lat))>1000){lat=lat.map(v=>v/1e7);lon=lon.map(v=>v/1e7)}
+  const ix=lat.map((v,i)=>i).filter(i=>isFinite(lat[i])&&isFinite(lon[i])&&Math.abs(lat[i])<=90&&Math.abs(lon[i])<=180);
+  if(ix.length<10)continue;lat0=lat[ix[0]];lon0=lon[ix[0]];const k=111320;
+  t=ix.map(i=>A.t[i]);N=ix.map(i=>(lat[i]-lat0)*k);Ea=ix.map(i=>(lon[i]-lon0)*k*Math.cos(lat0*Math.PI/180));break}
+ if(!t){const kx=K(/vehicle_local_position\.x$/),ky=K(/vehicle_local_position\.y$/);if(!kx||!ky)return null;const A=ds(D.S[kx],1500),B=align(A,ds(D.S[ky],1500));if(A.t.length<10)return null;t=A.t;N=A.v;Ea=B.v;posSource='PX4 local position'}
+ const AS=altSrc(),h=AS.baro||AS.gps;let U=h?align({t},h).v:null,altSource=h?(AS.baro?'barometer altitude':'GPS altitude'):'';
+ if(!U){const kz=K(/vehicle_local_position\.z$/);if(kz&&posSource==='PX4 local position'){const Z=align({t},ds(D.S[kz],1500));const z0=Z.v[0];U=Z.v.map(v=>z0-v);altSource='PX4 local vertical position'}}
+ const hasAltitude=!!U;if(!U)U=t.map(()=>0);return{t,e:Ea,n:N,u:U,source:posSource,altSource,hasAltitude,lat0,lon0}}
+function view3d(P){const el=E('div','sum flight3d'),cv=E('canvas'),sl=E('input'),inf=E('p','muted'),pb=E('button',null,'Play'),lb=E('label','ck'),ch=E('input'),bar=E('div','row'),meta=E('div','path-meta');
+ el.innerHTML=`<div class="path-head"><div><span class="path-kicker">FLIGHT REVIEW · 3D TRACK</span><h3>Flight path</h3></div><span class="path-source">${P.source}</span></div><p class="muted">Drag to orbit · scroll or use zoom controls · move the slider to follow the flight. GPS points are shown in local metres relative to the first valid fix. Line colors show recorded modes when available.</p>`;
+ const ne=Math.max(...P.e)-Math.min(...P.e),nn=Math.max(...P.n)-Math.min(...P.n),up=Math.max(...P.u),down=Math.min(...P.u),distance=P.t.reduce((sum,_,i)=>i?sum+Math.hypot(P.e[i]-P.e[i-1],P.n[i]-P.n[i-1]):0,0);
+ meta.innerHTML=`<div><small>PATH LENGTH</small><b>${distance.toFixed(0)} m</b></div><div><small>HORIZONTAL SPAN</small><b>${Math.hypot(ne,nn).toFixed(0)} m</b></div><div><small>HEIGHT RANGE</small><b>${P.hasAltitude?`${down.toFixed(0)} to ${up.toFixed(0)} m`:'Not recorded'}</b></div><div><small>POSITION POINTS</small><b>${P.t.length.toLocaleString()}</b></div>`;
+ sl.type='range';sl.min=0;sl.max=P.t.length-1;sl.value=0;sl.setAttribute('aria-label','Flight timeline position');sl.style.cssText='flex:1;min-width:140px';ch.type='checkbox';ch.setAttribute('aria-label','Stretch height by three times');lb.append(ch,E('span',null,'Stretch height ×3'));bar.append(pb,sl,lb);
+ let yaw=.8,pit=.6,zm=1,tm=null,dr=null;cv.setAttribute('aria-label','Interactive 3D flight path. Drag to rotate.');cv.style.cssText='touch-action:none;cursor:grab;border-radius:12px;background:linear-gradient(180deg,rgba(7,126,139,.035),transparent)';
+ const mn=a=>Math.min(...a),mx=a=>Math.max(...a),md=t=>(D.modeSegs||[]).find(m=>t>=m.t0&&t<=m.t1);
+ function paint(){const W=Math.max(300,el.clientWidth-38),H=Math.round(Math.min(560,Math.max(320,W*.57))),dp=devicePixelRatio||1,ex=ch.checked?3:1;cv.width=W*dp;cv.height=H*dp;cv.style.height=H+'px';cv.style.width=W+'px';
+  const g=cv.getContext('2d');g.setTransform(dp,0,0,dp,0,0);const st=getComputedStyle(document.documentElement),c=n=>st.getPropertyValue(n).trim(),
+  cx=(mn(P.e)+mx(P.e))/2,cn=(mn(P.n)+mx(P.n))/2,ext=Math.max(mx(P.e)-mn(P.e),mx(P.n)-mn(P.n),(mx(P.u)-mn(P.u))*ex,20),sc=Math.min(W,H)*.7/ext*zm,
+  pr=(e,n,u)=>{const a=e-cx,b=n-cn,x=a*Math.cos(yaw)-b*Math.sin(yaw),y=a*Math.sin(yaw)+b*Math.cos(yaw);return[W/2+x*sc,H*.66-(u*ex*Math.cos(pit)+y*Math.sin(pit))*sc]},
+  names=[...new Set((D.modeSegs||[]).map(m=>m.n))],col=t=>{const m=md(t);return m?`hsl(${names.indexOf(m.n)*67%360} 65% 48%)`:c('--c1')};
+  g.lineWidth=1;g.strokeStyle=c('--grid');const step=[1,5,10,20,50,100,200,500,1000,5000].find(s=>ext/s<=8)||10000,r=ext*.75;
+  for(let e=Math.ceil((cx-r)/step)*step;e<=cx+r;e+=step){g.beginPath();g.moveTo(...pr(e,cn-r,0));g.lineTo(...pr(e,cn+r,0));g.stroke()}
+  for(let n=Math.ceil((cn-r)/step)*step;n<=cn+r;n+=step){g.beginPath();g.moveTo(...pr(cx-r,n,0));g.lineTo(...pr(cx+r,n,0));g.stroke()}
+  g.fillStyle=c('--muted');g.font='11px system-ui,sans-serif';g.fillText(`Grid squares: ${step} m`,10,H-11);g.fillText('EAST',W-52,H-11);g.fillText('NORTH',10,28);
+  g.globalAlpha=.24;g.strokeStyle=c('--ink');g.beginPath();P.t.forEach((_,i)=>{const[x,y]=pr(P.e[i],P.n[i],0);i?g.lineTo(x,y):g.moveTo(x,y)});g.stroke();g.globalAlpha=1;
+  g.lineWidth=3;for(let i=1;i<P.t.length;i++){g.strokeStyle=col(P.t[i]);g.beginPath();g.moveTo(...pr(P.e[i-1],P.n[i-1],P.u[i-1]));g.lineTo(...pr(P.e[i],P.n[i],P.u[i]));g.stroke()}
+  const dot=(i,f,l)=>{const[x,y]=pr(P.e[i],P.n[i],P.u[i]);g.fillStyle=f;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.fillStyle=c('--ink');g.font='600 11px system-ui,sans-serif';g.fillText(l,x+9,y-6)};dot(0,c('--ok'),'START');dot(P.t.length-1,c('--bad'),'END');
+  const i=+sl.value,[x0,y0]=pr(P.e[i],P.n[i],0),[x1,y1]=pr(P.e[i],P.n[i],P.u[i]);g.strokeStyle=c('--warn');g.lineWidth=1.5;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();g.fillStyle=c('--warn');g.beginPath();g.arc(x1,y1,4,0,7);g.fill();
+  g.strokeStyle=c('--ink');g.lineWidth=1.5;g.beginPath();g.moveTo(34,H-42);g.lineTo(34-Math.sin(yaw)*26,H-42-Math.cos(yaw)*Math.sin(pit)*26);g.stroke();g.fillStyle=c('--ink');g.fillText('N',30-Math.sin(yaw)*34,H-37-Math.cos(yaw)*Math.sin(pit)*34);
+  let lx=10;names.forEach((n,k)=>{g.fillStyle=`hsl(${k*67%360} 65% 48%)`;g.fillRect(lx,10,10,10);g.fillStyle=c('--ink');g.fillText(n,lx+14,19);lx+=g.measureText(n).width+32});
+  inf.textContent=`${P.t[i].toFixed(1)} s · ${md(P.t[i])?.n||'Mode not recorded'} · ${P.hasAltitude?`${P.u[i].toFixed(1)} m relative height (${P.altSource})`:'Height not recorded; path shown flat'} · ${Math.hypot(P.e[i],P.n[i]).toFixed(1)} m from start`}
+ cv.onpointerdown=e=>{dr=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId)};cv.onpointerup=()=>dr=null;
+ cv.onpointermove=e=>{if(!dr)return;yaw+=(e.clientX-dr[0])*.01;pit=Math.max(0,Math.min(1.5,pit+(e.clientY-dr[1])*.01));dr=[e.clientX,e.clientY];paint()};
+ const zoom=f=>{zm=Math.max(.4,Math.min(6,zm*f));paint()};cv.onwheel=e=>{e.preventDefault();zoom(e.deltaY<0?1.1:.9)};
+ [['−',.8,'Zoom out'],['+',1.25,'Zoom in']].forEach(([s,f,label])=>{const b=E('button',null,s);b.setAttribute('aria-label',label);b.title=label;b.onclick=()=>zoom(f);bar.append(b)});el.append(cv,meta,bar,inf);
+ sl.oninput=ch.onchange=paint;pb.onclick=()=>{if(tm){clearInterval(tm);tm=null;pb.textContent='Play'}else{pb.textContent='Pause';tm=setInterval(()=>{sl.value=+sl.value>=P.t.length-1?0:+sl.value+Math.max(1,P.t.length/200|0);paint()},50)}};
+ return{el,paint}}
+/* ---------- inputs ---------- */
+function demo(){const n=1800,t=[],o={};const k=['MAG.MagX','MAG.MagY','MAG.MagZ','BAT.Curr','BAT.Volt','CTUN.ThO','VIBE.VibeX','VIBE.VibeY','VIBE.VibeZ','RCOU.C1','RCOU.C2','RCOU.C3','RCOU.C4','GPS.NSats','GPS.HDop','MODE.Mode','BARO.Alt','GPS.Spd','GPS.Alt','GPS.Lat','GPS.Lng'];k.forEach(x=>o[x]=[]);const rn=a=>(Math.random()-.5)*a;
+ for(let i=0;i<n;i++){const x=i*.05;t.push(x);const th=.3+.25*Math.sin(x/6)+(x>45?.2:0),I=4+55*th,y=x/20;
+  o['MAG.MagX'].push(220*Math.cos(y)+1.6*I+rn(5));o['MAG.MagY'].push(220*Math.sin(y)-.8*I+rn(5));o['MAG.MagZ'].push(420+1.1*I+rn(5));
+  o['BAT.Curr'].push(I+rn(2));o['BAT.Volt'].push(25.2-.05*I-x*.012+rn(.05));o['CTUN.ThO'].push(th);
+  const vb=6+(x>60?14:0)+rn(3);o['VIBE.VibeX'].push(vb);o['VIBE.VibeY'].push(vb*.8);o['VIBE.VibeZ'].push(vb*.6);
+  o['RCOU.C1'].push(1000+1000*th+rn(20));o['RCOU.C2'].push(1000+1000*th+90+rn(20));o['RCOU.C3'].push(1000+1000*th+rn(20));o['RCOU.C4'].push(1000+1000*th+10+rn(20));
+  o['GPS.NSats'].push(x>70&&x<75?5:14);o['GPS.HDop'].push(.8+(x>70&&x<75?2.5:0));o['MODE.Mode'].push(x<20?0:x<60?5:6);const al=x<10?0:Math.min(40,(x-10)*2)-(x>80?(x-80)*4:0);o['BARO.Alt'].push(al);o['GPS.Alt'].push(900+al+rn(2)+(x>70?(x-70)*.2:0));o['GPS.Lat'].push(12.74+.0004*Math.sin(x/14));o['GPS.Lng'].push(77.82+.0004*(1-Math.cos(x/14)));o['GPS.Spd'].push(x<20?1:4+3*Math.sin(x/5))}
+ const S={};k.forEach(x=>S[x]={t,v:o[x]});return fin({name:'Demo flight (made-up data)',fw:'ArduPilot (demo)',S})}
+async function load(f){$('#msg').textContent='Reading log…';
+ try{D=await parseAny(f);$('#msg').textContent='';$('#fn').textContent=f.name+' loaded ('+D.fw+')';sel.clear();chanList();overview()}catch(e){D=null;$('#msg').textContent=e.message}}
+$('#file').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+const dz=$('#dz');dz.ondragover=e=>{e.preventDefault();dz.classList.add('on')};dz.ondragleave=()=>dz.classList.remove('on');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('on');e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])};
+$('#demo').onclick=()=>{D=demo();$('#fn').textContent='Demo flight loaded';sel.clear();chanList();$('#msg').textContent='';overview()};
+$('#go').onclick=()=>{if(!D){$('#msg').textContent='Load a log first, or press “Try demo log”.';return}
+ const ids=pick($('#q').value),R={};for(const id of ids){try{R[id]=checks[id]()}catch(e){R[id]=NA(id,'something unexpected in this log’s data ('+e.message+').')}}
+ for(const id of Object.keys(names))if(!R[id]&&['mag','vib','motors','batt'].includes(id)&&ids.length<6)try{R[id]=checks[id]()}catch(e){}
+ render(R,ids)};
+</script></body></html>
